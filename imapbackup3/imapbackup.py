@@ -12,9 +12,11 @@ import imaplib
 import logging
 import mailbox
 import os
+from pathlib import Path
 import re
 import socket
 import sys
+from typing import Union
 
 logger = logging.getLogger("imapbackup3")
 
@@ -322,6 +324,7 @@ class IMAPBackup:
         folders=None,
         overwrite=False,
         fmt="mbox",
+        target_dir: Union[str, Path]=Path("."),
     ):
         self.mailserver = MailServerHandler(
             host=host,
@@ -338,6 +341,7 @@ class IMAPBackup:
         self.folders = folders
         self.overwrite = overwrite
         self.fmt = fmt
+        self.target_dir = Path(target_dir)
 
     def __enter__(self):
         self.mailserver.login()
@@ -478,13 +482,16 @@ class IMAPBackup:
 
     def download_all_messages(self, msg_filter=None):
         """Download all messages to a new mailbox with format `fmt`."""
+        # Ensure target directory exists
+        self.target_dir.mkdir(parents=True, exist_ok=True)
+
         for name_pair in self.names:
             try:
                 foldername, filename = name_pair
                 if self.fmt == "mbox":
-                    mbox = mailbox.mbox(filename, factory=email_message_factory)
+                    mbox = mailbox.mbox(self.target_dir.joinpath(filename), factory=email_message_factory)
                 elif self.fmt == "maildir":
-                    mbox = mailbox.Maildir(filename, factory=email_message_factory)
+                    mbox = mailbox.Maildir(self.target_dir.joinpath(filename), factory=email_message_factory)
                 else:
                     raise ValueError("Mailbox format {} not understood".format(fmt))
                 self.download_folder_messages(mbox, foldername, msg_filter=msg_filter)
